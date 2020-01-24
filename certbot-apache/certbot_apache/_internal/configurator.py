@@ -265,6 +265,8 @@ class ApacheConfigurator(common.Installer):
         # Set up ParserNode root
         pn_meta = {"augeasparser": self.parser,
                    "augeaspath": self.parser.get_root_augpath(),
+                   # TODO (mona): audit the use of serverroot here
+                   "serverroot": self.option("server_root"),
                    "ac_ast": None}
         if self.USE_PARSERNODE and HAS_APACHECONFIG:
             self.parser_root = self.get_parsernode_root(pn_meta)
@@ -372,19 +374,20 @@ class ApacheConfigurator(common.Installer):
         apache_vars["defines"] = apache_util.parse_defines(self.option("ctl"))
         apache_vars["includes"] = apache_util.parse_includes(self.option("ctl"))
         apache_vars["modules"] = apache_util.parse_modules(self.option("ctl"))
-        metadata["apache_vars"] = apache_vars
 
-        with open(self.parser.loc["root"]) as f:
-            with apacheconfig.make_loader(writable=True,
-                  **apacheconfig.flavors.NATIVE_APACHE) as loader:
+        with apacheconfig.make_loader(writable=True,
+              **apacheconfig.flavors.NATIVE_APACHE) as loader:
+            with open(self.parser.loc["root"]) as f:
                 metadata["ac_ast"] = loader.loads(f.read())
+            metadata["loader"] = loader
+            metadata["parsed_files"] = {}
 
-        return dualparser.DualBlockNode(
-            name=assertions.PASS,
-            ancestor=None,
-            filepath=self.parser.loc["root"],
-            metadata=metadata
-        )
+            return dualparser.DualBlockNode(
+                name=assertions.PASS,
+                ancestor=None,
+                filepath=self.parser.loc["root"],
+                metadata=metadata
+            )
 
     def _wildcard_domain(self, domain):
         """
