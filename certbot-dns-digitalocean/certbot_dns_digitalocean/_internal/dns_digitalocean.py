@@ -24,11 +24,13 @@ class Authenticator(dns_common.DNSAuthenticator):
     def __init__(self, *args, **kwargs):
         super(Authenticator, self).__init__(*args, **kwargs)
         self.credentials = None
+        self.ttl = kwargs.get('ttl', 120)
 
     @classmethod
     def add_parser_arguments(cls, add):  # pylint: disable=arguments-differ
         super(Authenticator, cls).add_parser_arguments(add)
         add('credentials', help='DigitalOcean credentials INI file.')
+        add('ttl', help='The TTL of the TXT record created for verification')
 
     def more_info(self):  # pylint: disable=missing-docstring,no-self-use
         return 'This plugin configures a DNS TXT record to respond to a dns-01 challenge using ' + \
@@ -58,8 +60,9 @@ class _DigitalOceanClient(object):
     Encapsulates all communication with the DigitalOcean API.
     """
 
-    def __init__(self, token):
-        self.manager = digitalocean.Manager(token=token)
+    def __init__(self, authenticator):
+        self.manager = digitalocean.Manager(token=authenticator.credentials.conf('token'))
+        self.ttl = authenticator.ttl
 
     def add_txt_record(self, domain_name, record_name, record_content):
         """
@@ -88,6 +91,7 @@ class _DigitalOceanClient(object):
             result = domain.create_new_domain_record(
                 type='TXT',
                 name=self._compute_record_name(domain, record_name),
+                ttl=self.ttl,
                 data=record_content)
 
             record_id = result['domain_record']['id']
